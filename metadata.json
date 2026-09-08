@@ -1,0 +1,6 @@
+{
+  "name": "إخوة الرب",
+  "description": "تطبيق كنسي خيري لإدارة المساعدات الاجتماعية والأسر المحتاجة (إخوة الرب)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
