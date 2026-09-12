@@ -97,7 +97,7 @@ fun AddEditPersonScreen(
                     .fillMaxWidth()
                     .testTag("person_name_input"),
                 label = { Text("الاسم بالكامل *") },
-                placeholder = { Text("مثال: مينا إبراهيم") },
+                placeholder = { Text("مثال: إخوة الرب") },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                 isError = nameError,
                 supportingText = {
