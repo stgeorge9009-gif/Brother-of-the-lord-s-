@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +38,7 @@ import com.example.ui.components.PersonCard
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.MainViewModel
 import com.example.util.CalendarUtil
+import com.example.util.PdfExportUtil
 
 data class QuickNavAction(
     val title: String,
@@ -55,8 +59,11 @@ fun DashboardScreen(
     onNavigateToCalendar: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToPersonDetail: (Long) -> Unit
+    onNavigateToPersonDetail: (Long) -> Unit,
+    onNavigateToWarehouse: () -> Unit = onNavigateToProducts,
+    onNavigateToFamilyPackages: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val selectedYear by viewModel.selectedYear.collectAsStateWithLifecycle()
     val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
 
@@ -64,6 +71,11 @@ fun DashboardScreen(
     val totalAssistancesCount by viewModel.monthlyTotalCount.collectAsStateWithLifecycle()
     val deliveredCount by viewModel.monthlyDeliveredCount.collectAsStateWithLifecycle()
     val totalAmount by viewModel.monthlyTotalAmount.collectAsStateWithLifecycle()
+
+    val warehouseCount by viewModel.totalWarehouseItemCount.collectAsStateWithLifecycle()
+    val warehouseValue by viewModel.totalWarehouseValue.collectAsStateWithLifecycle()
+    val warehouseQty by viewModel.totalWarehouseQuantity.collectAsStateWithLifecycle()
+    val allWarehouseProducts by viewModel.warehouseProducts.collectAsStateWithLifecycle()
 
     val monthAssistances by viewModel.selectedMonthAssistances.collectAsStateWithLifecycle()
     val remainingCount = (totalAssistancesCount - deliveredCount).coerceAtLeast(0)
@@ -82,6 +94,61 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    // Quick Warehouse PDF export
+                    IconButton(
+                        onClick = {
+                            val file = PdfExportUtil.generateWarehouseProductsPdf(
+                                context = context,
+                                items = allWarehouseProducts,
+                                grandTotal = warehouseValue,
+                                reportTitle = "تقرير كشف المخزن والمنتجات الشامل"
+                            )
+                            if (file != null) {
+                                PdfExportUtil.openOrSharePdf(context, file, "كشف بضاعة المخزن الشامل")
+                            } else {
+                                Toast.makeText(context, "تعذر إنشاء ملف الـ PDF للمخزن", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.testTag("dashboard_top_warehouse_pdf")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Inventory2,
+                            contentDescription = "كشف المخزن PDF",
+                            tint = ChurchGold
+                        )
+                    }
+
+                    // Quick Families PDF export
+                    IconButton(
+                        onClick = {
+                            if (monthAssistances.isEmpty()) {
+                                Toast.makeText(context, "لا توجد مساعدات مسجلة لهذا الشهر", Toast.LENGTH_SHORT).show()
+                                return@IconButton
+                            }
+                            val monthName = CalendarUtil.getArabicMonthName(selectedMonth)
+                            val file = PdfExportUtil.generateDetailedFamilyBreakdownPdf(
+                                context = context,
+                                year = selectedYear,
+                                month = selectedMonth,
+                                monthName = monthName,
+                                assistances = monthAssistances,
+                                customTitle = "كشف تجميعة طرود ومساعدات الأسر بالمنتجات والأسعار"
+                            )
+                            if (file != null) {
+                                PdfExportUtil.openOrSharePdf(context, file, "كشف تجميعة الأسر - شهر $monthName $selectedYear")
+                            } else {
+                                Toast.makeText(context, "تعذر إنشاء ملف الـ PDF للأسر", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.testTag("dashboard_top_family_pdf")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PictureAsPdf,
+                            contentDescription = "كشف الأسر PDF",
+                            tint = ChurchNavy
+                        )
+                    }
+
                     IconButton(
                         onClick = onNavigateToSettings,
                         modifier = Modifier.testTag("dashboard_settings_button")
@@ -105,12 +172,293 @@ fun DashboardScreen(
                 .testTag("dashboard_screen"),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // 1. TOP SPOTLIGHT HERO CARDS: Warehouse & Family Packages Breakdown with PDF Exports
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Warehouse Spotlight Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dashboard_warehouse_spotlight_card"),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = ChurchGoldContainer),
+                        border = BorderStroke(1.5.dp, ChurchGold.copy(alpha = 0.6f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(ChurchGold.copy(alpha = 0.25f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Inventory2,
+                                            contentDescription = null,
+                                            tint = ChurchGold,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "قسم المخزن وإدارة الأصناف",
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = ChurchNavy
+                                        )
+                                        Text(
+                                            text = "جرد البضائع، حساب أسعار الأصناف تلقائياً، وتصدير PDF",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = ChurchNavy.copy(alpha = 0.75f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Metrics inside card
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.White.copy(alpha = 0.75f),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text("عدد الأصناف", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("$warehouseCount صنف", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = ChurchNavy)
+                                    }
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.White.copy(alpha = 0.75f),
+                                    modifier = Modifier.weight(1.3f)
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text("إجمالي قيمة المخزن", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${warehouseValue.toInt()} ج.م", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = ChurchGold)
+                                    }
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.White.copy(alpha = 0.75f),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text("إجمالي الكميات", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${warehouseQty.toInt()} وحدة", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = ChurchNavy)
+                                    }
+                                }
+                            }
+
+                            // Actions inside card
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = onNavigateToWarehouse,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .testTag("dashboard_enter_warehouse_btn"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ChurchNavy)
+                                ) {
+                                    Icon(Icons.Default.Inventory2, contentDescription = null, modifier = Modifier.size(16.dp), tint = ChurchGold)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("دخول المخزن", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        val file = PdfExportUtil.generateWarehouseProductsPdf(
+                                            context = context,
+                                            items = allWarehouseProducts,
+                                            grandTotal = warehouseValue,
+                                            reportTitle = "تقرير كشف المخزن والمنتجات الشامل"
+                                        )
+                                        if (file != null) {
+                                            PdfExportUtil.openOrSharePdf(context, file, "كشف بضاعة المخزن الشامل")
+                                        } else {
+                                            Toast.makeText(context, "تعذر إنشاء كشف المخزن PDF", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .height(44.dp)
+                                        .testTag("dashboard_export_warehouse_pdf_btn"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.2.dp, ChurchGold),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ChurchGold)
+                                ) {
+                                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("كشف المخزن PDF", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    // Family Packages Spotlight Card
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dashboard_families_spotlight_card"),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = ChurchNavy.copy(alpha = 0.08f)),
+                        border = BorderStroke(1.5.dp, ChurchNavy.copy(alpha = 0.35f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(ChurchNavy.copy(alpha = 0.18f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.FamilyRestroom,
+                                            contentDescription = null,
+                                            tint = ChurchNavy,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "تجميعة طرود الأسر والمساعدات",
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = ChurchNavy
+                                        )
+                                        Text(
+                                            text = "كشف بالمنتجات والأسعار والكميات لكل أسرة وتصدير PDF",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = ChurchNavy.copy(alpha = 0.75f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Metrics inside card
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text("أسر هذا الشهر", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("$totalAssistancesCount أسرة", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = ChurchNavy)
+                                    }
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    modifier = Modifier.weight(1.3f)
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text("إجمالي قيمة الطرود", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${totalAmount.toInt()} ج.م", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = ChurchGold)
+                                    }
+                                }
+                            }
+
+                            // Actions inside card
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = onNavigateToFamilyPackages,
+                                    modifier = Modifier
+                                        .weight(1.1f)
+                                        .height(44.dp)
+                                        .testTag("dashboard_enter_families_package_btn"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ChurchNavy)
+                                ) {
+                                    Icon(Icons.Default.PeopleAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("تجميعة الأسر", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        if (monthAssistances.isEmpty()) {
+                                            Toast.makeText(context, "لا توجد مساعدات مسجلة لهذا الشهر", Toast.LENGTH_SHORT).show()
+                                            return@OutlinedButton
+                                        }
+                                        val monthName = CalendarUtil.getArabicMonthName(selectedMonth)
+                                        val file = PdfExportUtil.generateDetailedFamilyBreakdownPdf(
+                                            context = context,
+                                            year = selectedYear,
+                                            month = selectedMonth,
+                                            monthName = monthName,
+                                            assistances = monthAssistances,
+                                            customTitle = "كشف تجميعة طرود ومساعدات الأسر بالمنتجات والأسعار"
+                                        )
+                                        if (file != null) {
+                                            PdfExportUtil.openOrSharePdf(context, file, "كشف تجميعة الأسر - شهر $monthName $selectedYear")
+                                        } else {
+                                            Toast.makeText(context, "تعذر إنشاء ملف الـ PDF للأسر", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .height(44.dp)
+                                        .testTag("dashboard_export_families_pdf_btn"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.2.dp, ChurchNavy),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ChurchNavy)
+                                ) {
+                                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("كشف الأسر PDF", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Header Image Banner
             item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(130.dp),
+                        .height(115.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = ChurchGoldContainer)
                 ) {
@@ -252,8 +600,9 @@ fun DashboardScreen(
 
             item {
                 val quickActions = listOf(
+                    QuickNavAction("المخزن والأصناف", Icons.Default.Inventory2, ChurchGoldContainer, ChurchGold, "btn_nav_warehouse", onNavigateToWarehouse),
+                    QuickNavAction("تجميعة طرود الأسر", Icons.Default.FamilyRestroom, ChurchNavy.copy(alpha = 0.12f), ChurchNavy, "btn_nav_families_summary", onNavigateToFamilyPackages),
                     QuickNavAction("الأشخاص والأسر", Icons.Default.People, ChurchNavy.copy(alpha = 0.1f), ChurchNavy, "btn_nav_people", onNavigateToPeople),
-                    QuickNavAction("المنتجات والأسعار", Icons.Default.ShoppingBag, ChurchGoldContainer, ChurchGold, "btn_nav_products", onNavigateToProducts),
                     QuickNavAction("سجل المساعدات", Icons.Default.ReceiptLong, ChurchGreenContainer, ChurchGreen, "btn_nav_assistance", onNavigateToAssistance),
                     QuickNavAction("التقويم والمواعيد", Icons.Default.CalendarMonth, MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.primary, "btn_nav_calendar", onNavigateToCalendar),
                     QuickNavAction("التقارير والإحصائيات", Icons.Default.BarChart, ChurchRedContainer, ChurchRed, "btn_nav_reports", onNavigateToReports),

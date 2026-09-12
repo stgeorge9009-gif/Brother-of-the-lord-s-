@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,15 +16,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.MetricCard
 import com.example.ui.components.MonthPickerHeader
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.MainViewModel
 import com.example.util.CalendarUtil
+import com.example.util.PdfExportUtil
 
 data class ProductReportItem(
     val productName: String,
@@ -38,12 +42,15 @@ fun ReportsScreen(
     viewModel: MainViewModel,
     onNavigateBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val selectedYear by viewModel.selectedYear.collectAsStateWithLifecycle()
     val selectedMonth by viewModel.selectedMonth.collectAsStateWithLifecycle()
 
     val totalPersons by viewModel.totalPersonCount.collectAsStateWithLifecycle()
     val monthAssistances by viewModel.selectedMonthAssistances.collectAsStateWithLifecycle()
     val allAssistances by viewModel.allAssistances.collectAsStateWithLifecycle()
+    val warehouseProducts by viewModel.warehouseProducts.collectAsStateWithLifecycle()
+    val warehouseTotalValue by viewModel.totalWarehouseValue.collectAsStateWithLifecycle()
 
     val monthDeliveredCount = monthAssistances.count { it.assistance.status == "DELIVERED" }
     val monthPendingCount = monthAssistances.size - monthDeliveredCount
@@ -87,6 +94,32 @@ fun ReportsScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "رجوع",
                             tint = ChurchNavy
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            val monthName = CalendarUtil.getArabicMonthName(selectedMonth)
+                            val file = PdfExportUtil.generateFamilyAssistanceReportPdf(
+                                context = context,
+                                year = selectedYear,
+                                month = selectedMonth,
+                                monthName = monthName,
+                                assistances = monthAssistances
+                            )
+                            if (file != null) {
+                                PdfExportUtil.openOrSharePdf(context, file, "تقرير مساعدات الأسر - شهر $monthName $selectedYear")
+                            } else {
+                                Toast.makeText(context, "تعذر إنشاء ملف الـ PDF", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.testTag("reports_export_pdf_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PictureAsPdf,
+                            contentDescription = "تصدير كشف المساعدات PDF",
+                            tint = ChurchGold
                         )
                     }
                 },
@@ -140,6 +173,82 @@ fun ReportsScreen(
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                             color = Color(0xFF1E293B)
                         )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        HorizontalDivider(color = ChurchGold.copy(alpha = 0.3f))
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Detailed Families Breakdown PDF Button
+                        Button(
+                            onClick = {
+                                if (monthAssistances.isEmpty()) {
+                                    Toast.makeText(context, "لا توجد مساعدات مسجلة لهذا الشهر", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                val monthName = CalendarUtil.getArabicMonthName(selectedMonth)
+                                val file = PdfExportUtil.generateDetailedFamilyBreakdownPdf(
+                                    context = context,
+                                    year = selectedYear,
+                                    month = selectedMonth,
+                                    monthName = monthName,
+                                    assistances = monthAssistances,
+                                    customTitle = "كشف تجميعة طرود ومساعدات الأسر بالمنتجات والأسعار"
+                                )
+                                if (file != null) {
+                                    PdfExportUtil.openOrSharePdf(context, file, "كشف تجميعة الأسر - شهر $monthName $selectedYear")
+                                } else {
+                                    Toast.makeText(context, "تعذر إنشاء ملف الـ PDF للأسر", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("reports_detailed_families_pdf_btn"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ChurchNavy)
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = ChurchGold, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "تصدير كشف تجميعة الأسر بالمنتجات والأسعار (PDF)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color.White
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Warehouse Inventory PDF Button
+                        OutlinedButton(
+                            onClick = {
+                                val file = PdfExportUtil.generateWarehouseProductsPdf(
+                                    context = context,
+                                    items = warehouseProducts,
+                                    grandTotal = warehouseTotalValue,
+                                    reportTitle = "تقرير كشف المخزن والمنتجات الشامل"
+                                )
+                                if (file != null) {
+                                    PdfExportUtil.openOrSharePdf(context, file, "كشف بضاعة المخزن الشامل")
+                                } else {
+                                    Toast.makeText(context, "تعذر إنشاء ملف الـ PDF للمخزن", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("reports_warehouse_inventory_pdf_btn"),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.2.dp, ChurchNavy),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ChurchNavy)
+                        ) {
+                            Icon(Icons.Default.Inventory2, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "تصدير كشف بضائع ومنتجات المخزن (PDF)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
                     }
                 }
             }

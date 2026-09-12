@@ -14,6 +14,7 @@ sealed class Screen(val route: String) {
         fun createRoute(personId: Long) = "edit_person_package/$personId"
     }
     object Products : Screen("products")
+    object Warehouse : Screen("warehouse")
     object AddEditProduct : Screen("add_edit_product/{productId}") {
         fun createRoute(productId: Long) = "add_edit_product/$productId"
     }
@@ -21,6 +22,7 @@ sealed class Screen(val route: String) {
         fun createRoute(assistanceId: Long) = "edit_assistance/$assistanceId"
     }
     object MonthlyAssistance : Screen("monthly_assistance")
+    object FamilyPackagesSummary : Screen("family_packages_summary")
     object Calendar : Screen("calendar")
     object Reports : Screen("reports")
     object Settings : Screen("settings")

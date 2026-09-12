@@ -18,7 +18,7 @@ fun AppNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Splash.route,
+        startDestination = Screen.Dashboard.route,
         modifier = modifier
     ) {
         composable(Screen.Splash.route) {
@@ -35,8 +35,10 @@ fun AppNavGraph(
             DashboardScreen(
                 viewModel = viewModel,
                 onNavigateToPeople = { navController.navigate(Screen.People.route) },
-                onNavigateToProducts = { navController.navigate(Screen.Products.route) },
+                onNavigateToProducts = { navController.navigate(Screen.Warehouse.route) },
+                onNavigateToWarehouse = { navController.navigate(Screen.Warehouse.route) },
                 onNavigateToAssistance = { navController.navigate(Screen.MonthlyAssistance.route) },
+                onNavigateToFamilyPackages = { navController.navigate(Screen.FamilyPackagesSummary.route) },
                 onNavigateToCalendar = { navController.navigate(Screen.Calendar.route) },
                 onNavigateToReports = { navController.navigate(Screen.Reports.route) },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
@@ -110,7 +112,20 @@ fun AppNavGraph(
         }
 
         composable(Screen.Products.route) {
-            ProductsScreen(
+            WarehouseScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddProduct = {
+                    navController.navigate(Screen.AddEditProduct.createRoute(-1L))
+                },
+                onNavigateToEditProduct = { productId ->
+                    navController.navigate(Screen.AddEditProduct.createRoute(productId))
+                }
+            )
+        }
+
+        composable(Screen.Warehouse.route) {
+            WarehouseScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAddProduct = {
@@ -148,6 +163,16 @@ fun AppNavGraph(
 
         composable(Screen.MonthlyAssistance.route) {
             MonthlyAssistanceScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToPersonDetail = { personId ->
+                    navController.navigate(Screen.PersonDetail.createRoute(personId))
+                }
+            )
+        }
+
+        composable(Screen.FamilyPackagesSummary.route) {
+            FamilyPackagesSummaryScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToPersonDetail = { personId ->

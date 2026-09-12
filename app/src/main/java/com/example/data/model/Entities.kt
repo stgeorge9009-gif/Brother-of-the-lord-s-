@@ -25,12 +25,16 @@ data class ProductEntity(
     val name: String,
     val unit: String, // e.g. "كجم", "جرام", "لتر", "مل", "قطعة", "عبوة", "كيس", "علبة"
     val currentPrice: Double,
+    val quantity: Double = 0.0,
     val iconEmoji: String = "📦",
     val imageUri: String? = null,
     val category: String = "مواد غذائية",
     val isActive: Boolean = true,
     val notes: String = ""
-)
+) {
+    val totalProductPrice: Double
+        get() = currentPrice * quantity
+}
 
 // Standard recurring monthly package item template for a person
 @Entity(

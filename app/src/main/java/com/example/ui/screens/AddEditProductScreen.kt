@@ -46,6 +46,7 @@ fun AddEditProductScreen(
     var name by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("كجم") }
     var priceText by remember { mutableStateOf("") }
+    var quantityText by remember { mutableStateOf("0") }
     var iconEmoji by remember { mutableStateOf("🍚") }
     var category by remember { mutableStateOf("حبوب ومواد غذائية") }
     var isActive by remember { mutableStateOf(true) }
@@ -54,6 +55,7 @@ fun AddEditProductScreen(
 
     var nameError by remember { mutableStateOf(false) }
     var priceError by remember { mutableStateOf(false) }
+    var quantityError by remember { mutableStateOf(false) }
 
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -102,6 +104,7 @@ fun AddEditProductScreen(
                 name = found.name
                 unit = found.unit
                 priceText = if (found.currentPrice % 1.0 == 0.0) found.currentPrice.toInt().toString() else found.currentPrice.toString()
+                quantityText = if (found.quantity % 1.0 == 0.0) found.quantity.toInt().toString() else found.quantity.toString()
                 iconEmoji = found.iconEmoji
                 category = found.category
                 isActive = found.isActive
@@ -372,6 +375,118 @@ fun AddEditProductScreen(
                 }
             }
 
+            // Quantity Field
+            OutlinedTextField(
+                value = quantityText,
+                onValueChange = {
+                    quantityText = it
+                    if (it.isNotBlank()) quantityError = false
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("product_quantity_input"),
+                label = { Text("الكمية المتوفرة بالمخزن *") },
+                placeholder = { Text("0") },
+                leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = quantityError,
+                supportingText = {
+                    if (quantityError) Text("يرجى كتابة كمية صحيحة (0 أو أكثر)", color = MaterialTheme.colorScheme.error)
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp)
+            )
+
+            // Quantity Shortcuts (+1, +5, +10, -1, -5)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "تعديل سريع:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                listOf(-5.0, -1.0, 1.0, 5.0, 10.0).forEach { delta ->
+                    AssistChip(
+                        onClick = {
+                            val current = quantityText.toDoubleOrNull() ?: 0.0
+                            val updated = (current + delta).coerceAtLeast(0.0)
+                            quantityText = if (updated % 1.0 == 0.0) updated.toInt().toString() else updated.toString()
+                            quantityError = false
+                        },
+                        label = {
+                            Text(if (delta > 0) "+${delta.toInt()}" else "${delta.toInt()}")
+                        }
+                    )
+                }
+            }
+
+            // Live Automatic Price Calculation Card (سعر الوحدة × الكمية = إجمالي المنتج)
+            val parsedPrice = priceText.toDoubleOrNull() ?: 0.0
+            val parsedQty = quantityText.toDoubleOrNull() ?: 0.0
+            val calculatedTotal = parsedPrice * parsedQty
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = ChurchGoldContainer.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(16.dp),
+                border = CardDefaults.outlinedCardBorder()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Calculate,
+                                contentDescription = null,
+                                tint = ChurchNavy,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "حساب قيمة المنتج تلقائياً",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = ChurchNavy
+                            )
+                        }
+                        Text(
+                            text = "سعر الوحدة × الكمية",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${if (parsedPrice % 1.0 == 0.0) parsedPrice.toInt().toString() else parsedPrice.toString()} ج.م × ${if (parsedQty % 1.0 == 0.0) parsedQty.toInt().toString() else parsedQty.toString()} $unit =",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "${if (calculatedTotal % 1.0 == 0.0) calculatedTotal.toLong().toString() else String.format(java.util.Locale.US, "%.2f", calculatedTotal)} جنيه",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = ChurchNavy
+                        )
+                    }
+                }
+            }
+
             // Active / Inactive Switch
             Row(
                 modifier = Modifier
@@ -413,16 +528,20 @@ fun AddEditProductScreen(
             Button(
                 onClick = {
                     val price = priceText.toDoubleOrNull()
+                    val qty = quantityText.toDoubleOrNull()
                     if (name.isBlank()) {
                         nameError = true
                     } else if (price == null || price < 0.0) {
                         priceError = true
+                    } else if (qty == null || qty < 0.0) {
+                        quantityError = true
                     } else {
                         viewModel.saveProduct(
                             id = productId,
                             name = name,
                             unit = unit,
                             currentPrice = price,
+                            quantity = qty,
                             iconEmoji = iconEmoji,
                             imageUri = imagePath,
                             category = category,

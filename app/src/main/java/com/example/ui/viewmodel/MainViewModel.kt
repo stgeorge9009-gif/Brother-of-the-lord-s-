@@ -56,6 +56,51 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val products: StateFlow<List<ProductEntity>> = repository.allProducts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Warehouse State: Search & Sorting
+    private val _warehouseSearchQuery = MutableStateFlow("")
+    val warehouseSearchQuery: StateFlow<String> = _warehouseSearchQuery.asStateFlow()
+
+    private val _warehouseSortOption = MutableStateFlow(WarehouseSortOption.DEFAULT)
+    val warehouseSortOption: StateFlow<WarehouseSortOption> = _warehouseSortOption.asStateFlow()
+
+    // Selected products for Aggregation / PDF Export
+    private val _selectedWarehouseProductIds = MutableStateFlow<Set<Long>>(emptySet())
+    val selectedWarehouseProductIds: StateFlow<Set<Long>> = _selectedWarehouseProductIds.asStateFlow()
+
+    // Filtered & Sorted Warehouse Products
+    val warehouseProducts: StateFlow<List<ProductEntity>> = combine(
+        repository.allProducts,
+        _warehouseSearchQuery,
+        _warehouseSortOption
+    ) { allItems, query, sortOption ->
+        val filtered = if (query.isBlank()) {
+            allItems
+        } else {
+            allItems.filter { it.name.contains(query, ignoreCase = true) || it.category.contains(query, ignoreCase = true) }
+        }
+
+        when (sortOption) {
+            WarehouseSortOption.DEFAULT -> filtered
+            WarehouseSortOption.NAME_ASC -> filtered.sortedBy { it.name }
+            WarehouseSortOption.PRICE_DESC -> filtered.sortedByDescending { it.currentPrice }
+            WarehouseSortOption.QUANTITY_DESC -> filtered.sortedByDescending { it.quantity }
+            WarehouseSortOption.TOTAL_VALUE_DESC -> filtered.sortedByDescending { it.totalProductPrice }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Warehouse Inventory Aggregate Metrics
+    val totalWarehouseValue: StateFlow<Double> = repository.allProducts
+        .map { list -> list.sumOf { it.totalProductPrice } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val totalWarehouseQuantity: StateFlow<Double> = repository.allProducts
+        .map { list -> list.sumOf { it.quantity } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+
+    val totalWarehouseItemCount: StateFlow<Int> = repository.allProducts
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     // Assistances for Selected Month
     @OptIn(ExperimentalCoroutinesApi::class)
     val selectedMonthAssistances: StateFlow<List<MonthlyAssistanceWithDetails>> =
@@ -184,12 +229,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Warehouse Actions
+    fun setWarehouseSearchQuery(query: String) {
+        _warehouseSearchQuery.value = query
+    }
+
+    fun setWarehouseSortOption(option: WarehouseSortOption) {
+        _warehouseSortOption.value = option
+    }
+
+    fun toggleWarehouseProductSelection(productId: Long) {
+        val current = _selectedWarehouseProductIds.value
+        _selectedWarehouseProductIds.value = if (current.contains(productId)) {
+            current - productId
+        } else {
+            current + productId
+        }
+    }
+
+    fun selectAllWarehouseProducts() {
+        val allIds = products.value.map { it.id }.toSet()
+        _selectedWarehouseProductIds.value = allIds
+    }
+
+    fun clearWarehouseProductSelection() {
+        _selectedWarehouseProductIds.value = emptySet()
+    }
+
+    fun updateProductStock(productId: Long, newQuantity: Double) {
+        viewModelScope.launch {
+            repository.updateProductQuantity(productId, newQuantity)
+        }
+    }
+
     // Product Actions
     fun saveProduct(
         id: Long,
         name: String,
         unit: String,
         currentPrice: Double,
+        quantity: Double = 0.0,
         iconEmoji: String,
         imageUri: String?,
         category: String = "مواد غذائية",
@@ -203,6 +282,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 name = name.trim(),
                 unit = unit.trim(),
                 currentPrice = currentPrice.coerceAtLeast(0.0),
+                quantity = quantity.coerceAtLeast(0.0),
                 iconEmoji = if (iconEmoji.isBlank()) "📦" else iconEmoji,
                 imageUri = imageUri,
                 category = category.ifBlank { "مواد غذائية" },
@@ -304,4 +384,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         return root.toString(2)
     }
+}
+
+enum class WarehouseSortOption(val title: String) {
+    DEFAULT("الافتراضي"),
+    NAME_ASC("أبجدي (أ - ي)"),
+    PRICE_DESC("الأعلى سعراً"),
+    QUANTITY_DESC("الأكثر كمية"),
+    TOTAL_VALUE_DESC("الأعلى إجمالي")
 }
