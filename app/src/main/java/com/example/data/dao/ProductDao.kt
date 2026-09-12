@@ -33,6 +33,9 @@ interface ProductDao {
     @Delete
     suspend fun deleteProduct(product: ProductEntity)
 
+    @Query("DELETE FROM products")
+    suspend fun deleteAllProducts()
+
     @Query("SELECT COUNT(*) FROM products")
     suspend fun getProductCount(): Int
 }

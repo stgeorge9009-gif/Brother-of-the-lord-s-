@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -97,6 +98,38 @@ fun AddEditProductScreen(
         "أخرى"
     )
 
+    fun performSave() {
+        val price = priceText.toDoubleOrNull()
+        val qty = quantityText.toDoubleOrNull()
+        if (name.isBlank()) {
+            nameError = true
+            Toast.makeText(context, "يرجى كتابة اسم المنتج أولاً", Toast.LENGTH_SHORT).show()
+        } else if (price == null || price < 0.0) {
+            priceError = true
+            Toast.makeText(context, "يرجى إدخال سعر صحيح", Toast.LENGTH_SHORT).show()
+        } else if (qty == null || qty < 0.0) {
+            quantityError = true
+            Toast.makeText(context, "يرجى إدخال كمية صحيحة", Toast.LENGTH_SHORT).show()
+        } else {
+            viewModel.saveProduct(
+                id = productId,
+                name = name,
+                unit = unit,
+                currentPrice = price,
+                quantity = qty,
+                iconEmoji = iconEmoji,
+                imageUri = imagePath,
+                category = category,
+                isActive = isActive,
+                notes = notes,
+                onComplete = {
+                    Toast.makeText(context, "✅ تم حفظ التعديلات والمنتج في قاعدة البيانات بنجاح", Toast.LENGTH_SHORT).show()
+                    onNavigateBack()
+                }
+            )
+        }
+    }
+
     LaunchedEffect(productId) {
         if (productId > 0L) {
             val found = viewModel.products.value.find { it.id == productId }
@@ -133,6 +166,27 @@ fun AddEditProductScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "رجوع",
                             tint = ChurchNavy
+                        )
+                    }
+                },
+                actions = {
+                    Button(
+                        onClick = { performSave() },
+                        colors = ButtonDefaults.buttonColors(containerColor = ChurchNavy),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .testTag("top_bar_save_product_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "حفظ (Save)",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
                 },
@@ -526,31 +580,7 @@ fun AddEditProductScreen(
 
             // Save Button
             Button(
-                onClick = {
-                    val price = priceText.toDoubleOrNull()
-                    val qty = quantityText.toDoubleOrNull()
-                    if (name.isBlank()) {
-                        nameError = true
-                    } else if (price == null || price < 0.0) {
-                        priceError = true
-                    } else if (qty == null || qty < 0.0) {
-                        quantityError = true
-                    } else {
-                        viewModel.saveProduct(
-                            id = productId,
-                            name = name,
-                            unit = unit,
-                            currentPrice = price,
-                            quantity = qty,
-                            iconEmoji = iconEmoji,
-                            imageUri = imagePath,
-                            category = category,
-                            isActive = isActive,
-                            notes = notes,
-                            onComplete = onNavigateBack
-                        )
-                    }
-                },
+                onClick = { performSave() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
@@ -565,7 +595,7 @@ fun AddEditProductScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (productId > 0L) "حفظ التعديلات" else "حفظ المنتج",
+                    text = if (productId > 0L) "حفظ التعديلات (Save)" else "حفظ المنتج (Save)",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onPrimary
                 )

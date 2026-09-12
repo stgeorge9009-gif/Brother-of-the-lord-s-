@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import android.content.Context
 import com.example.data.dao.AssistanceDao
 import com.example.data.dao.PersonDao
 import com.example.data.dao.ProductDao
@@ -58,25 +59,66 @@ class ChurchRepository(
     // Product Operations
     val allProducts: Flow<List<ProductEntity>> = productDao.getAllProducts()
 
-    suspend fun seedDefaultProductsIfEmpty() {
-        if (productDao.getProductCount() == 0) {
-            val defaults = listOf(
-                ProductEntity(name = "لحمة", unit = "كجم", currentPrice = 350.0, quantity = 25.0, iconEmoji = "🥩", category = "لحوم ومأكولات"),
-                ProductEntity(name = "أرز", unit = "كجم", currentPrice = 40.0, quantity = 100.0, iconEmoji = "🍚", category = "حبوب ومواد غذائية"),
-                ProductEntity(name = "مكرونة", unit = "كيس", currentPrice = 25.0, quantity = 120.0, iconEmoji = "🍝", category = "نشويات"),
-                ProductEntity(name = "دقيق", unit = "كجم", currentPrice = 30.0, quantity = 80.0, iconEmoji = "🌾", category = "نشويات"),
-                ProductEntity(name = "سكر", unit = "كجم", currentPrice = 35.0, quantity = 90.0, iconEmoji = "🍬", category = "سكريات ومؤن"),
-                ProductEntity(name = "زيت", unit = "لتر", currentPrice = 80.0, quantity = 60.0, iconEmoji = "🫗", category = "زيوت وسمن"),
-                ProductEntity(name = "فول", unit = "كجم", currentPrice = 45.0, quantity = 40.0, iconEmoji = "🫘", category = "بقوليات"),
-                ProductEntity(name = "ملح", unit = "عبوة", currentPrice = 10.0, quantity = 50.0, iconEmoji = "🧂", category = "توابل ومؤن"),
-                ProductEntity(name = "صلصة", unit = "علبة", currentPrice = 20.0, quantity = 70.0, iconEmoji = "🥫", category = "معلبات"),
-                ProductEntity(name = "شاي", unit = "عبوة", currentPrice = 20.0, quantity = 45.0, iconEmoji = "🫖", category = "مشروبات"),
-                ProductEntity(name = "لبن", unit = "لتر", currentPrice = 35.0, quantity = 30.0, iconEmoji = "🥛", category = "ألبان ومجففات"),
-                ProductEntity(name = "عدس", unit = "كجم", currentPrice = 50.0, quantity = 35.0, iconEmoji = "🫘", category = "بقوليات"),
-                ProductEntity(name = "برغل", unit = "كجم", currentPrice = 40.0, quantity = 25.0, iconEmoji = "🌾", category = "حبوب ومواد غذائية")
-            )
-            productDao.insertProducts(defaults)
+    suspend fun seedDefaultProductsIfEmpty(context: Context) {
+        val prefs = context.getSharedPreferences("warehouse_settings_prefs", Context.MODE_PRIVATE)
+        val hasSeeded = prefs.getBoolean("has_seeded_default_products_v1", false)
+        // If user already ran the app once, NEVER re-seed deleted products!
+        if (!hasSeeded) {
+            if (productDao.getProductCount() == 0) {
+                val defaults = listOf(
+                    ProductEntity(name = "لحمة", unit = "كجم", currentPrice = 350.0, quantity = 25.0, iconEmoji = "🥩", category = "لحوم ومأكولات"),
+                    ProductEntity(name = "أرز", unit = "كجم", currentPrice = 40.0, quantity = 100.0, iconEmoji = "🍚", category = "حبوب ومواد غذائية"),
+                    ProductEntity(name = "مكرونة", unit = "كيس", currentPrice = 25.0, quantity = 120.0, iconEmoji = "🍝", category = "نشويات"),
+                    ProductEntity(name = "دقيق", unit = "كجم", currentPrice = 30.0, quantity = 80.0, iconEmoji = "🌾", category = "نشويات"),
+                    ProductEntity(name = "سكر", unit = "كجم", currentPrice = 35.0, quantity = 90.0, iconEmoji = "🍬", category = "سكريات ومؤن"),
+                    ProductEntity(name = "زيت", unit = "لتر", currentPrice = 80.0, quantity = 60.0, iconEmoji = "🫗", category = "زيوت وسمن"),
+                    ProductEntity(name = "فول", unit = "كجم", currentPrice = 45.0, quantity = 40.0, iconEmoji = "🫘", category = "بقوليات"),
+                    ProductEntity(name = "ملح", unit = "عبوة", currentPrice = 10.0, quantity = 50.0, iconEmoji = "🧂", category = "توابل ومؤن"),
+                    ProductEntity(name = "صلصة", unit = "علبة", currentPrice = 20.0, quantity = 70.0, iconEmoji = "🥫", category = "معلبات"),
+                    ProductEntity(name = "شاي", unit = "عبوة", currentPrice = 20.0, quantity = 45.0, iconEmoji = "🫖", category = "مشروبات"),
+                    ProductEntity(name = "لبن", unit = "لتر", currentPrice = 35.0, quantity = 30.0, iconEmoji = "🥛", category = "ألبان ومجففات"),
+                    ProductEntity(name = "عدس", unit = "كجم", currentPrice = 50.0, quantity = 35.0, iconEmoji = "🫘", category = "بقوليات"),
+                    ProductEntity(name = "برغل", unit = "كجم", currentPrice = 40.0, quantity = 25.0, iconEmoji = "🌾", category = "حبوب ومواد غذائية")
+                )
+                productDao.insertProducts(defaults)
+            }
+            prefs.edit().putBoolean("has_seeded_default_products_v1", true).apply()
         }
+    }
+
+    suspend fun markProductsPermanentlySaved(context: Context) {
+        val prefs = context.getSharedPreferences("warehouse_settings_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("has_seeded_default_products_v1", true)
+            .putLong("last_saved_timestamp", System.currentTimeMillis())
+            .apply()
+    }
+
+    suspend fun restoreDefaultProducts(context: Context) {
+        val defaults = listOf(
+            ProductEntity(name = "لحمة", unit = "كجم", currentPrice = 350.0, quantity = 25.0, iconEmoji = "🥩", category = "لحوم ومأكولات"),
+            ProductEntity(name = "أرز", unit = "كجم", currentPrice = 40.0, quantity = 100.0, iconEmoji = "🍚", category = "حبوب ومواد غذائية"),
+            ProductEntity(name = "مكرونة", unit = "كيس", currentPrice = 25.0, quantity = 120.0, iconEmoji = "🍝", category = "نشويات"),
+            ProductEntity(name = "دقيق", unit = "كجم", currentPrice = 30.0, quantity = 80.0, iconEmoji = "🌾", category = "نشويات"),
+            ProductEntity(name = "سكر", unit = "كجم", currentPrice = 35.0, quantity = 90.0, iconEmoji = "🍬", category = "سكريات ومؤن"),
+            ProductEntity(name = "زيت", unit = "لتر", currentPrice = 80.0, quantity = 60.0, iconEmoji = "🫗", category = "زيوت وسمن"),
+            ProductEntity(name = "فول", unit = "كجم", currentPrice = 45.0, quantity = 40.0, iconEmoji = "🫘", category = "بقوليات"),
+            ProductEntity(name = "ملح", unit = "عبوة", currentPrice = 10.0, quantity = 50.0, iconEmoji = "🧂", category = "توابل ومؤن"),
+            ProductEntity(name = "صلصة", unit = "علبة", currentPrice = 20.0, quantity = 70.0, iconEmoji = "🥫", category = "معلبات"),
+            ProductEntity(name = "شاي", unit = "عبوة", currentPrice = 20.0, quantity = 45.0, iconEmoji = "🫖", category = "مشروبات"),
+            ProductEntity(name = "لبن", unit = "لتر", currentPrice = 35.0, quantity = 30.0, iconEmoji = "🥛", category = "ألبان ومجففات"),
+            ProductEntity(name = "عدس", unit = "كجم", currentPrice = 50.0, quantity = 35.0, iconEmoji = "🫘", category = "بقوليات"),
+            ProductEntity(name = "برغل", unit = "كجم", currentPrice = 40.0, quantity = 25.0, iconEmoji = "🌾", category = "حبوب ومواد غذائية")
+        )
+        productDao.insertProducts(defaults)
+        val prefs = context.getSharedPreferences("warehouse_settings_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("has_seeded_default_products_v1", true).apply()
+    }
+
+    suspend fun deleteAllProducts(context: Context) {
+        productDao.deleteAllProducts()
+        val prefs = context.getSharedPreferences("warehouse_settings_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("has_seeded_default_products_v1", true).apply()
     }
 
     suspend fun insertOrUpdateProduct(product: ProductEntity): Long {

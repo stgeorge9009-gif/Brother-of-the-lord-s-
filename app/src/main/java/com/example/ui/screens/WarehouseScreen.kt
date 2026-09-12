@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,6 +61,110 @@ fun WarehouseScreen(
 
     var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
     var showAggregationSheet by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
+    var showClearAllDialog by remember { mutableStateOf(false) }
+    var showRestoreDefaultsDialog by remember { mutableStateOf(false) }
+
+    // Clear All Products Confirmation Dialog
+    if (showClearAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearAllDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.DeleteSweep,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "تفريغ المخزن بالكامل",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = "هل أنت متأكد من حذف جميع الأصناف من المخزن؟ سيصبح المخزن فارغاً تماماً ولن تعود الأصناف تلقائياً عند إعادة فتح التطبيق.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearAllWarehouseProducts {
+                            Toast.makeText(context, "✅ تم تفريغ المخزن بالكامل وحفظ الحالة بنجاح", Toast.LENGTH_LONG).show()
+                        }
+                        showClearAllDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_clear_all_products_button")
+                ) {
+                    Text("نعم، تفريغ وحذف الكل")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showClearAllDialog = false },
+                    modifier = Modifier.testTag("cancel_clear_all_products_button")
+                ) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // Restore Defaults Dialog
+    if (showRestoreDefaultsDialog) {
+        AlertDialog(
+            onDismissRequest = { showRestoreDefaultsDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Restore,
+                    contentDescription = null,
+                    tint = ChurchNavy,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "استعادة الأصناف الافتراضية",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = "هل ترغب في إضافة قائمة الأصناف التموينية الأساسية المقترحة (اللحمة، الأرز، السكر، الزيت، إلخ) إلى المخزن؟",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.restoreDefaultWarehouseProducts {
+                            Toast.makeText(context, "✅ تمت استعادة الأصناف الافتراضية وحفظها بنجاح", Toast.LENGTH_LONG).show()
+                        }
+                        showRestoreDefaultsDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ChurchNavy),
+                    modifier = Modifier.testTag("confirm_restore_defaults_button")
+                ) {
+                    Text("استعادة الأصناف")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showRestoreDefaultsDialog = false }
+                ) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
 
     // Aggregation Dialog / Bottom Sheet
     if (showAggregationSheet) {
@@ -113,7 +218,7 @@ fun WarehouseScreen(
             },
             text = {
                 Text(
-                    text = "هل أنت متأكد من حذف صنف \"${product.name}\" نهائيًا من المخزن؟ لن يمكنك استرجاعه بعد الحذف.",
+                    text = "هل أنت متأكد من حذف صنف \"${product.name}\" نهائيًا من المخزن؟ التعديل محفوظ في قاعدة البيانات ولن يعود عند إغلاق التطبيق.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
                 )
@@ -123,7 +228,7 @@ fun WarehouseScreen(
                     onClick = {
                         viewModel.deleteProduct(product)
                         productToDelete = null
-                        Toast.makeText(context, "تم حذف الصنف بنجاح", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "✅ تم حذف صنف \"${product.name}\" وحفظ التغيير نهائياً", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     modifier = Modifier.testTag("confirm_delete_product_button")
@@ -172,6 +277,34 @@ fun WarehouseScreen(
                     }
                 },
                 actions = {
+                    // Save Button in TopAppBar
+                    Button(
+                        onClick = {
+                            viewModel.saveAllWarehouseChanges {
+                                Toast.makeText(context, "💾 تم حفظ وتثبيت كافة بيانات المخزن والمنتجات بنجاح في قاعدة البيانات", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ChurchNavy),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .testTag("warehouse_top_save_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "حفظ (Save)",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = Color.White
+                        )
+                    }
+
                     // PDF quick export
                     IconButton(
                         onClick = {
@@ -206,6 +339,67 @@ fun WarehouseScreen(
                             contentDescription = "تجميع المنتجات",
                             tint = ChurchNavy
                         )
+                    }
+
+                    // More Options Dropdown Menu
+                    Box {
+                        IconButton(
+                            onClick = { showMoreMenu = true },
+                            modifier = Modifier.testTag("warehouse_more_menu_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "خيارات إضافية",
+                                tint = ChurchNavy
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMoreMenu,
+                            onDismissRequest = { showMoreMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("حفظ وتثبيت بيانات المخزن (Save)") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Save, contentDescription = null, tint = ChurchNavy)
+                                },
+                                onClick = {
+                                    showMoreMenu = false
+                                    viewModel.saveAllWarehouseChanges {
+                                        Toast.makeText(context, "💾 تم حفظ وتثبيت كافة بيانات المخزن بنجاح", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("استعادة الأصناف الافتراضية") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Restore, contentDescription = null, tint = ChurchGold)
+                                },
+                                onClick = {
+                                    showMoreMenu = false
+                                    showRestoreDefaultsDialog = true
+                                }
+                            )
+
+                            HorizontalDivider()
+
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "تفريغ المخزن بالكامل (حذف الكل)",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                },
+                                onClick = {
+                                    showMoreMenu = false
+                                    showClearAllDialog = true
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -262,6 +456,86 @@ fun WarehouseScreen(
                         containerColor = ChurchGreen.copy(alpha = 0.1f),
                         contentColor = ChurchGreen
                     )
+                }
+            }
+
+            // Permanent Save & Storage Status Bar
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("warehouse_save_status_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = ChurchGreenContainer.copy(alpha = 0.45f)),
+                    border = BorderStroke(1.dp, ChurchGreen.copy(alpha = 0.35f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(ChurchGreen.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = ChurchGreen,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "الحفظ الدائم لقاعدة البيانات",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = ChurchNavy
+                                )
+                                Text(
+                                    text = "جميع التعديلات وحذف الأصناف محفوظة نهائياً ولن تعود عند إغلاق التطبيق",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Button(
+                            onClick = {
+                                viewModel.saveAllWarehouseChanges {
+                                    Toast.makeText(context, "💾 تم تأكيد وحفظ كافة بيانات المخزن والأصناف في قاعدة البيانات بنجاح", Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ChurchGreen),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            modifier = Modifier.testTag("btn_save_warehouse_data")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Save,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "حفظ (Save)",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
             }
 
@@ -387,7 +661,8 @@ fun WarehouseScreen(
                     EmptyWarehouseState(
                         hasQuery = searchQuery.isNotEmpty(),
                         onAddProduct = onNavigateToAddProduct,
-                        onClearSearch = { viewModel.setWarehouseSearchQuery("") }
+                        onClearSearch = { viewModel.setWarehouseSearchQuery("") },
+                        onRestoreDefaults = { showRestoreDefaultsDialog = true }
                     )
                 }
             } else {
@@ -897,7 +1172,8 @@ fun AggregationDialog(
 fun EmptyWarehouseState(
     hasQuery: Boolean,
     onAddProduct: () -> Unit,
-    onClearSearch: () -> Unit
+    onClearSearch: () -> Unit,
+    onRestoreDefaults: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -928,7 +1204,7 @@ fun EmptyWarehouseState(
         )
 
         Text(
-            text = if (hasQuery) "جرب البحث بكلمات أخرى أو امسح شريط البحث." else "ابدأ بإضافة الأصناف والمنتجات والكميات المتاحة في المخزن.",
+            text = if (hasQuery) "جرب البحث بكلمات أخرى أو امسح شريط البحث." else "المخزن خالٍ من الأصناف حالياً. يمكنك إضافة أصنافك الخاصة أو استعادة الأصناف الافتراضية.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -939,14 +1215,28 @@ fun EmptyWarehouseState(
                 Text("مسح البحث")
             }
         } else {
-            Button(
-                onClick = onAddProduct,
-                colors = ButtonDefaults.buttonColors(containerColor = ChurchNavy),
-                shape = RoundedCornerShape(12.dp)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("إضافة أول منتج")
+                Button(
+                    onClick = onAddProduct,
+                    colors = ButtonDefaults.buttonColors(containerColor = ChurchNavy),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("إضافة أول منتج")
+                }
+
+                OutlinedButton(
+                    onClick = onRestoreDefaults,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Restore, contentDescription = null, tint = ChurchNavy)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("استعادة الأصناف الافتراضية", color = ChurchNavy)
+                }
             }
         }
     }

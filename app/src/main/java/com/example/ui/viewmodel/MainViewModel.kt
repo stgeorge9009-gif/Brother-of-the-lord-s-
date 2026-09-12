@@ -143,7 +143,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            repository.seedDefaultProductsIfEmpty()
+            repository.seedDefaultProductsIfEmpty(getApplication())
             repository.ensureMonthlyAssistancesForActivePersons(currentRealYear, currentRealMonth)
             NotificationUtil.createNotificationChannel(getApplication())
         }
@@ -259,6 +259,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateProductStock(productId: Long, newQuantity: Double) {
         viewModelScope.launch {
             repository.updateProductQuantity(productId, newQuantity)
+            repository.markProductsPermanentlySaved(getApplication())
         }
     }
 
@@ -290,6 +291,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 notes = notes.trim()
             )
             repository.insertOrUpdateProduct(product)
+            repository.markProductsPermanentlySaved(getApplication())
             onComplete()
         }
     }
@@ -298,12 +300,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val updated = product.copy(isActive = !product.isActive)
             repository.insertOrUpdateProduct(updated)
+            repository.markProductsPermanentlySaved(getApplication())
         }
     }
 
     fun deleteProduct(product: ProductEntity) {
         viewModelScope.launch {
             repository.deleteProduct(product)
+            repository.markProductsPermanentlySaved(getApplication())
+        }
+    }
+
+    fun saveAllWarehouseChanges(onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.markProductsPermanentlySaved(getApplication())
+            onSuccess()
+        }
+    }
+
+    fun restoreDefaultWarehouseProducts(onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.restoreDefaultProducts(getApplication())
+            onComplete()
+        }
+    }
+
+    fun clearAllWarehouseProducts(onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.deleteAllProducts(getApplication())
+            clearWarehouseProductSelection()
+            onComplete()
         }
     }
 
